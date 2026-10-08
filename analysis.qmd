@@ -1,0 +1,10 @@
+---
+title: "analysis"
+format: pdf
+author: "Ryan and Veronica"
+---
+
+```{r}
+hallunination <- read.csv("hallucination_cases.csv")
+```
+
