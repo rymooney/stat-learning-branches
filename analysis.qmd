@@ -1,10 +1,132 @@
 ---
-title: "analysis"
-format: pdf
+title: "AI Hallucinations in Legal Cases"
 author: "Ryan and Veronica"
+format: pdf
 ---
 
+## Research Question, Exploratory Analysis, and Decision Tree
+
+## Research Question
+
+Artificial intelligence tools are increasingly being used in legal settings, but AI-generated hallucinations can introduce inaccurate information into legal documents and proceedings. Our research question is:
+
+**What characteristics of legal cases involving AI hallucinations are associated with whether a professional sanction is issued?**
+
+We focus on characteristics of the parties involved and the primary legal field of the case. Our response variable is whether the case resulted in a professional sanction.
+
+## Data Preparation
+
 ```{r}
-hallunination <- read.csv("hallucination_cases.csv")
+library(tidyverse)
+library(rpart)
+library(rpart.plot)
+
+hallucination <- read_csv("hallucination_cases.csv")
+
+hallucination <- hallucination |>
+  mutate(
+    sanction = factor(
+      `Professional Sanction`,
+      levels = c("No", "Yes")
+    ),
+    
+    # Group party types for exploratory analysis
+    party_group = case_when(
+      `Party(ies)` == "Lawyer" ~ "Lawyer",
+      `Party(ies)` == "Pro Se Litigant" ~ "Pro Se Litigant",
+      TRUE ~ "Other"
+    ),
+    
+    # Variables used in the decision tree
+    party = factor(`Party(ies)`),
+    legal_field = factor(`Legal Field Primary`),
+    alleged = factor(Alleged),
+    vendor_disputed = factor(`Vendor Disputed`)
+  ) |>
+  drop_na(sanction)
 ```
 
+##Exploratory Analysis##
+
+Because our response variable is whether a professional sanction was issued, we first examine whether the sanction rate differs across party types.
+```{r}
+party_summary <- hallucination |>
+  group_by(party_group) |>
+  summarise(
+    cases = n(),
+    sanctions = sum(sanction == "Yes"),
+    sanction_rate = mean(sanction == "Yes") * 100
+  )
+
+party_summary
+```
+
+```{r}
+ggplot(
+  party_summary,
+  aes(x = party_group, y = sanction_rate)
+) +
+  geom_col() +
+  geom_text(
+    aes(label = paste0(round(sanction_rate, 1), "%")),
+    vjust = -0.4
+  ) +
+  labs(
+    title = "Professional Sanction Rate by Party Type",
+    x = "Party type",
+    y = "Professional sanction rate (%)"
+  ) +
+  theme_minimal()
+```
+The exploratory analysis shows substantial differences in professional sanction rates across party types. Cases involving lawyers have a considerably higher sanction rate than cases involving pro se litigants, while cases classified as other party types fall between these groups. This suggests that party type may be an important predictor of professional sanctions and motivates its inclusion in the decision tree.
+
+##Decision Tree##
+
+To examine whether party type and other case characteristics jointly predict professional sanctions, we fit a classification tree using party type, primary legal field, alleged misconduct, and whether the AI vendor disputed the hallucination.
+
+Because professional sanctions are relatively uncommon in the dataset, we use equal class priors so that the tree does not simply favor the majority class of cases with no sanction.
+
+```{r}
+tree <- rpart(
+  sanction ~ party + legal_field + alleged + vendor_disputed,
+  data = hallucination,
+  method = "class",
+  parms = list(prior = c(0.5, 0.5)),
+  control = rpart.control(
+    cp = 0.001,
+    minsplit = 20,
+    minbucket = 10
+  )
+)
+```
+
+```{r}
+#| fig-width: 16
+#| fig-height: 8
+
+rpart.plot(
+  tree,
+  type = 2,
+  extra = 104,
+  fallen.leaves = TRUE,
+  faclen = 0,
+  varlen = 0,
+  split.cex = 0.35,
+  cex = 0.7,
+  compress = FALSE
+)
+```
+
+```{r}
+rpart.rules(
+  tree,
+  style = "tall",
+  cover = TRUE
+)
+```
+
+The decision tree identifies party type and legal field as important predictors of professional sanctions. The first split is based on party type, indicating that this variable provides the greatest reduction in classification error among the predictors considered. One branch contains approximately 59% of the cases and has a very low model-assigned probability of a sanction.
+
+Among the remaining cases, legal field provides an additional important split. The tree identifies combinations of party type and legal field associated with substantially higher predicted probabilities of professional sanctions. In particular, one terminal node has a model-assigned probability of approximately 81% for a professional sanction and contains approximately 9% of the cases.
+
+Overall, the tree suggests that professional sanctions are not evenly distributed across cases involving AI hallucinations. Instead, the predicted likelihood of a sanction varies substantially depending on the characteristics of the parties involved and the legal field of the case.
