@@ -87,9 +87,20 @@ To examine whether party type and other case characteristics jointly predict pro
 Because professional sanctions are relatively uncommon in the dataset, we use equal class priors so that the tree does not simply favor the majority class of cases with no sanction.
 
 ```{r}
+#splitting and cleaning up data
+train_id <- sample(1:nrow(hallucination), round(0.8 * nrow(hallucination)))
+hallucination_train <- hallucination[train_id,] |>
+  select(sanction, party, legal_field, alleged, vendor_disputed)
+hallucination_test <- hallucination[-train_id,] |>
+  select(sanction, party, legal_field, alleged, vendor_disputed)
+
+```
+
+
+```{r}
 tree <- rpart(
   sanction ~ party + legal_field + alleged + vendor_disputed,
-  data = hallucination,
+  data = hallucination_train,
   method = "class",
   parms = list(prior = c(0.5, 0.5)),
   control = rpart.control(
@@ -125,8 +136,46 @@ rpart.rules(
 )
 ```
 
-The decision tree identifies party type and legal field as important predictors of professional sanctions. The first split is based on party type, indicating that this variable provides the greatest reduction in classification error among the predictors considered. One branch contains approximately 59% of the cases and has a very low model-assigned probability of a sanction.
+The decision tree identifies party type and legal field as important predictors of professional sanctions. The first split is based on party type, indicating that this variable provides the greatest reduction in classification error among the predictors considered. One branch contains approximately 60% of the cases and has a very low model-assigned probability of a sanction.
 
-Among the remaining cases, legal field provides an additional important split. The tree identifies combinations of party type and legal field associated with substantially higher predicted probabilities of professional sanctions. In particular, one terminal node has a model-assigned probability of approximately 81% for a professional sanction and contains approximately 9% of the cases.
+Among the remaining cases, legal field provides an additional important split. The tree identifies combinations of party type and legal field associated with substantially higher predicted probabilities of professional sanctions. In particular, one terminal node has a model-assigned probability of approximately 83% for a professional sanction and contains approximately 8% of the cases.
 
 Overall, the tree suggests that professional sanctions are not evenly distributed across cases involving AI hallucinations. Instead, the predicted likelihood of a sanction varies substantially depending on the characteristics of the parties involved and the legal field of the case.
+
+## Random Forest
+```{r}
+library(randomForest)
+#creating random forest
+hallucination_train <- na.omit(hallucination_train)
+forest <- randomForest(sanction ~ party + legal_field + alleged + vendor_disputed,
+                       data = hallucination_train,
+                       ntree = 500,
+                       importance = TRUE,
+                       proximity = TRUE)
+
+forest
+```
+## Model Comparison
+```{r}
+tree_predict <- predict(tree, newdata = hallucination_test, type = "class")
+confusion_tree <- table(hallucination_test$sanction, tree_predict)
+confusion_tree #accuracy = 0.65625, sensitivity = 0.947
+
+hallucination_test <- na.omit(hallucination_test)
+forest_pred <- predict(forest, newdata = hallucination_test)
+confusion_forest <- table(hallucination_test$sanction, forest_pred)
+confusion_forest
+((350)/(350+2+25))
+
+#classification error
+#tree
+mean(tree_predict != hallucination_test$sanction) #= 0.3125
+#forest
+mean(forest_pred != hallucination_test$sanction) #= 0.071
+```
+The accuracy of the single decision tree is 0.656, while the accuracy of the forest is 0.928. The sensitivity of the tree is 0.947 and the sensitivy of the forest is 0. We see an interesting result from comparing the two models in that despite its higher accuracy, the random forest resulted in a lot of false positives. This could be because the original data is very skewed in that the there are more `no sanctions` than `sanctions`. 
+
+## Conclusions
+There were some limitations to this analysis as the data isn't clean. There were missing rows that had to be cleaned up for the random forest, and the response is very skewed in the actual data as described above. Nevertheless, we choose to compare the models by their misclassification error rates. The decision tree's misclassification error rate is 0.3125, while the misclassification error rte of the random forest is only 0.071. With a lower error rate, we decide the random forest as the better model.
+
+
