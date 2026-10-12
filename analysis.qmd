@@ -178,3 +178,4 @@ The accuracy of the single decision tree is 0.656, while the accuracy of the for
 ## Conclusions
 There were some limitations to this analysis as the data isn't clean. There were missing rows that had to be cleaned up for the random forest, and the response is very skewed in the actual data as described above. Nevertheless, we choose to compare the models by their misclassification error rates. The decision tree's misclassification error rate is 0.3125, while the misclassification error rte of the random forest is only 0.071. With a lower error rate, we decide the random forest as the better model.
 
+
