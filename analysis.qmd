@@ -46,7 +46,7 @@ hallucination <- hallucination |>
   drop_na(sanction)
 ```
 
-##Exploratory Analysis##
+## Exploratory Analysis
 
 Because our response variable is whether a professional sanction was issued, we first examine whether the sanction rate differs across party types.
 ```{r}
@@ -80,7 +80,7 @@ ggplot(
 ```
 The exploratory analysis shows substantial differences in professional sanction rates across party types. Cases involving lawyers have a considerably higher sanction rate than cases involving pro se litigants, while cases classified as other party types fall between these groups. This suggests that party type may be an important predictor of professional sanctions and motivates its inclusion in the decision tree.
 
-##Decision Tree##
+## Decision Tree
 
 To examine whether party type and other case characteristics jointly predict professional sanctions, we fit a classification tree using party type, primary legal field, alleged misconduct, and whether the AI vendor disputed the hallucination.
 
