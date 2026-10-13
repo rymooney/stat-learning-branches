@@ -1,7 +1,7 @@
 ---
 title: "AI Hallucinations in Legal Cases"
 author: "Ryan and Veronica"
-format: pdf
+format: html
 ---
 
 ## Research Question, Exploratory Analysis, and Decision Tree
